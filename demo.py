@@ -3,6 +3,7 @@ import numpy as np
 import mediapipe as mp
 import streamlit as st
 from deepface import DeepFace
+from deepface.modules.verification import find_cosine_distance
 
 
 # Setting up mediapipe instances
@@ -33,12 +34,25 @@ with col2:
     run_emotion_analysis = st.checkbox("Emotion Analysis", value=False)
     run_age_analysis = st.checkbox("Age Analysis", value=False)
     run_gender_analysis = st.checkbox("Gender Analysis", value=False)
+    run_race_analysis = st.checkbox("Race Analysis", value=False)
     run_face_mesh = st.checkbox("Face Mesh", value=False)
     run_background_removal = st.checkbox("Background Removal", value=False)
-    bg_image = None
-    BG_COLOR = (192, 192, 192) # gray
     # run_stylizer = st.checkbox("Face Stylizer", value=False)
+    run_face_recognition = st.checkbox("Face Recognition", value=False)
     analysis_placeholder = st.empty()
+    recognition_placeholder = st.empty()
+
+# Prepare some constants
+bg_image = None
+BG_COLOR = (192, 192, 192) # gray
+face_recognition_model = "Facenet"
+face_recognition_threshold = 0.5
+init_verifications_vector = DeepFace.represent(
+    img_path="minh.jpg",
+    model_name=face_recognition_model,
+    enforce_detection=False
+)[0]['embedding']
+
 
 # Capture video from the webcam
 cap = cv2.VideoCapture(0)
@@ -83,7 +97,9 @@ while cap.isOpened():
 
             if run_emotion_analysis or \
                 run_age_analysis or \
-                run_gender_analysis:
+                run_gender_analysis or \
+                run_race_analysis or \
+                run_face_recognition:
 
                 actions = []
                 if run_emotion_analysis:
@@ -92,13 +108,33 @@ while cap.isOpened():
                     actions.append("age")
                 if run_gender_analysis:
                     actions.append("gender")
+                if run_race_analysis:
+                    actions.append("race")
+                if run_face_recognition:
+                    checking_verifications_vector = DeepFace.represent(
+                        img_path=face_image, 
+                        model_name=face_recognition_model,
+                        enforce_detection=False
+                    )[0]['embedding']
+                    distance = find_cosine_distance(
+                        init_verifications_vector, 
+                        checking_verifications_vector
+                    )
+                    if distance < face_recognition_threshold:
+                        recognition_placeholder.text("This is Minhhh...")
+                    else:
+                        recognition_placeholder.text("This is not Minhhh...")
 
                 try:
+                    if len(actions) == 0:
+                        continue
                     # Analyze the cropped face for multiple attributes
                     analysis = DeepFace.analyze(
                         img_path=face_image,
                         actions=actions,
-                        enforce_detection=False
+                        detector_backend="skip",
+                        enforce_detection=False,
+                        silent=True
                     )[0]
                 except Exception as e:
                     st.write("Error in deepface analysis:", e)
@@ -111,6 +147,8 @@ while cap.isOpened():
                     text += f"--{analysis['age']}--"
                 if run_gender_analysis:
                     text += f"--{analysis['dominant_gender']}--"
+                if run_race_analysis:
+                    text += f"--{analysis['dominant_race']}--"
                 analysis_placeholder.text(text)
 
     if run_face_mesh:
