@@ -53,103 +53,101 @@ init_verifications_vector = DeepFace.represent(
     enforce_detection=False
 )[0]['embedding']
 
-
 # Capture video from the webcam
 cap = cv2.VideoCapture(0)
 while cap.isOpened():
+    text_result_analysis, text_result_recognition = "", ""
+
     success, image = cap.read()
     if not success:
         st.write("Error accessing webcam.")
         break
 
-    # Flip the image horizontally for a selfie-view display
     image = cv2.flip(image, 1)
-    # Convert the BGR image to RGB
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
     if run_face_detection:
         # Perform face detection
         results_detection = face_detection.process(image)
-        if results_detection.detections is None:
-            continue
 
-        for detection in results_detection.detections:
-            mp.solutions.drawing_utils.draw_detection(image, detection)
-            # Assuming detection.location_data.relative_bounding_box gives the bounding box
-            # Convert relative_bounding_box to pixel coordinates for cropping
-            bboxC = detection.location_data.relative_bounding_box
-            ih, iw, _ = image.shape
-            bbox = int(bboxC.xmin * iw), int(bboxC.ymin * ih), \
-                    int(bboxC.width * iw), int(bboxC.height * ih)
-            face_image = image[bbox[1]:bbox[1]+bbox[3], bbox[0]:bbox[0]+bbox[2]]
+        if results_detection.detections is not None:
+            for detection in results_detection.detections:
+                mp.solutions.drawing_utils.draw_detection(image, detection)
+                # Assuming detection.location_data.relative_bounding_box gives the bounding box
+                # Convert relative_bounding_box to pixel coordinates for cropping
+                bboxC = detection.location_data.relative_bounding_box
+                ih, iw, _ = image.shape
+                bbox = int(bboxC.xmin * iw), int(bboxC.ymin * ih), \
+                        int(bboxC.width * iw), int(bboxC.height * ih)
+                face_image = image[bbox[1]:bbox[1]+bbox[3], bbox[0]:bbox[0]+bbox[2]]
 
-            # if run_stylizer:
-            #     mp_face_image = mp.Image(
-            #         image_format=mp.ImageFormat.SRGB,
-            #         data=np.array(face_image)
-            #     )
-            #     face_stylizer_result = face_stylizer.stylize(mp_face_image)
-            #     if face_stylizer_result is None:
-            #         continue
-            #     face_stylizer_result= face_stylizer_result.numpy_view()[:,:,:-1]
-            #     face_stylizer_result = cv2.resize(face_stylizer_result, (bbox[2], bbox[3]))
-            #     image[bbox[1]:bbox[1]+bbox[3], bbox[0]:bbox[0]+bbox[2]] = face_stylizer_result
+                # if run_stylizer:
+                #     mp_face_image = mp.Image(
+                #         image_format=mp.ImageFormat.SRGB,
+                #         data=np.array(face_image)
+                #     )
+                #     face_stylizer_result = face_stylizer.stylize(mp_face_image)
+                #     if face_stylizer_result is None:
+                #         continue
+                #     face_stylizer_result= face_stylizer_result.numpy_view()[:,:,:-1]
+                #     face_stylizer_result = cv2.resize(face_stylizer_result, (bbox[2], bbox[3]))
+                #     image[bbox[1]:bbox[1]+bbox[3], bbox[0]:bbox[0]+bbox[2]] = face_stylizer_result
 
-            if run_emotion_analysis or \
-                run_age_analysis or \
-                run_gender_analysis or \
-                run_race_analysis or \
-                run_face_recognition:
+                if run_emotion_analysis or \
+                    run_age_analysis or \
+                    run_gender_analysis or \
+                    run_race_analysis or \
+                    run_face_recognition:
 
-                actions = []
-                if run_emotion_analysis:
-                    actions.append("emotion")
-                if run_age_analysis:
-                    actions.append("age")
-                if run_gender_analysis:
-                    actions.append("gender")
-                if run_race_analysis:
-                    actions.append("race")
-                if run_face_recognition:
-                    checking_verifications_vector = DeepFace.represent(
-                        img_path=face_image, 
-                        model_name=face_recognition_model,
-                        enforce_detection=False
-                    )[0]['embedding']
-                    distance = find_cosine_distance(
-                        init_verifications_vector, 
-                        checking_verifications_vector
-                    )
-                    if distance < face_recognition_threshold:
-                        recognition_placeholder.text("This is Minhhh...")
-                    else:
-                        recognition_placeholder.text("This is not Minhhh...")
+                    actions = []
+                    if run_emotion_analysis:
+                        actions.append("emotion")
+                    if run_age_analysis:
+                        actions.append("age")
+                    if run_gender_analysis:
+                        actions.append("gender")
+                    if run_race_analysis:
+                        actions.append("race")
+                    if run_face_recognition:
+                        checking_verifications_vector = DeepFace.represent(
+                            img_path=face_image, 
+                            model_name=face_recognition_model,
+                            enforce_detection=False
+                        )
+                        if len(checking_verifications_vector) > 0:
+                            checking_verifications_vector = checking_verifications_vector[0]['embedding']
+                            distance = find_cosine_distance(
+                                init_verifications_vector, 
+                                checking_verifications_vector
+                            )
+                            if distance < face_recognition_threshold:
+                                text_result_recognition = "This is Minhhh..."
+                            else:
+                                text_result_recognition = "This is not Minhhh..."
 
-                try:
-                    if len(actions) == 0:
-                        continue
-                    # Analyze the cropped face for multiple attributes
-                    analysis = DeepFace.analyze(
-                        img_path=face_image,
-                        actions=actions,
-                        detector_backend="skip",
-                        enforce_detection=False,
-                        silent=True
-                    )[0]
-                except Exception as e:
-                    st.write("Error in deepface analysis:", e)
-                
-                # Display the analysis results on the image
-                text = ""
-                if run_emotion_analysis:
-                    text += f"--{analysis['dominant_emotion']}--"
-                if run_age_analysis:
-                    text += f"--{analysis['age']}--"
-                if run_gender_analysis:
-                    text += f"--{analysis['dominant_gender']}--"
-                if run_race_analysis:
-                    text += f"--{analysis['dominant_race']}--"
-                analysis_placeholder.text(text)
+                    try:
+                        analysis = []
+                        if len(actions) > 0:
+                            # Analyze the cropped face for multiple attributes
+                            analysis = DeepFace.analyze(
+                                img_path=face_image,
+                                actions=actions,
+                                detector_backend="skip",
+                                enforce_detection=False,
+                                silent=True
+                            )
+                    except Exception as e:
+                        st.write("Error in deepface analysis:", e)
+
+                    if len(analysis) > 0:
+                        analysis = analysis[0]
+                        if run_emotion_analysis:
+                            text_result_analysis += f"--{analysis['dominant_emotion']}--"
+                        if run_age_analysis:
+                            text_result_analysis += f"--{analysis['age']}--"
+                        if run_gender_analysis:
+                            text_result_analysis += f"--{analysis['dominant_gender']}--"
+                        if run_race_analysis:
+                            text_result_analysis += f"--{analysis['dominant_race']}--"
 
     if run_face_mesh:
         # Perform face mesh
@@ -176,8 +174,10 @@ while cap.isOpened():
             bg_image[:] = BG_COLOR
         image = np.where(condition, image, bg_image)
 
-    # Display the processed image in the Streamlit app
+    # Display the analysis results on the image
     frame_placeholder.image(image, channels="RGB", use_column_width=True)
+    analysis_placeholder.text(text_result_analysis)
+    recognition_placeholder.text(text_result_recognition)
 
 # Release the webcam on app closure
 cap.release()
