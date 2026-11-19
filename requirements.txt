@@ -3,4 +3,4 @@ streamlit==1.33.0
 watchdog==4.0.0
 deepface==0.0.89
 tensorflow==2.15.0
-keras==2.15.0
+keras==3.15.0
