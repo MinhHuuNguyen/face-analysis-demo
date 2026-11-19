@@ -1,5 +1,5 @@
 mediapipe==0.10.9
-streamlit==1.33.0
+streamlit==1.54.0
 watchdog==4.0.0
 deepface==0.0.89
 tensorflow==2.15.0
